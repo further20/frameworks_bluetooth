@@ -205,6 +205,7 @@ static void a2dp_source_start_read(void)
         return;
 
     stream->read_congest = 0;
+    BT_LOGD("%s, tamestamp(ms)%"PRIu32, __func__, bt_get_os_timestamp_ms());
     audio_transport_read_start(a2dp_transport,
         AUDIO_TRANS_CH_ID_AV_SOURCE_AUDIO,
         a2dp_audio_data_alloc,
