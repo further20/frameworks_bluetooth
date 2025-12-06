@@ -166,7 +166,7 @@ static int start_adv_cmd(void* handle, int argc, char* argv[])
     params.peer_addr_type = BT_LE_ADDR_TYPE_PUBLIC;
     bt_addr_set_empty(&params.own_addr);
     params.own_addr_type = BT_LE_ADDR_TYPE_PUBLIC;
-    params.interval = 320;
+    params.interval = 32;
     params.tx_power = 0;
     params.channel_map = BT_LE_ADV_CHANNEL_DEFAULT;
     params.filter_policy = BT_LE_ADV_FILTER_WHITE_LIST_FOR_NONE;

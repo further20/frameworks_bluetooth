@@ -21,7 +21,7 @@
 #include <zephyr/bluetooth/gatt.h>
 #include <zephyr/kernel.h>
 
-#define CONFIG_BT_CS_TEST 1
+// #define CONFIG_BT_CS_TEST 1
 
 #ifndef BIT
 #define BIT(n) (1 << n)

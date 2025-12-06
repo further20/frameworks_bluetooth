@@ -158,7 +158,7 @@ bt_status_t bt_sal_cs_security_enable(bt_controller_id_t id, bt_address_t* addr)
     return BT_STATUS_SUCCESS;
 }
 
-bt_status_t bt_sal_cs_procedure_enable(bt_address_t* addr,
+bt_status_t bt_sal_cs_procedure_enable(bt_controller_id_t id, bt_address_t* addr,
 			      const bt_le_srv_cs_procedure_enable_param_t *params)
 {
     if (!addr) {
@@ -169,7 +169,7 @@ bt_status_t bt_sal_cs_procedure_enable(bt_address_t* addr,
     bt_addr_le_t le_addr = {0};
     memcpy(le_addr.a.val, addr->addr, sizeof(addr->addr));
     struct bt_le_cs_procedure_enable_param enable = {};
-    struct bt_conn* conn = bt_conn_lookup_addr_le(0, (const bt_addr_le_t *)&le_addr);
+    struct bt_conn* conn = bt_conn_lookup_addr_le(id, (const bt_addr_le_t *)&le_addr);
 
     if (!conn) {
         BT_LOGE("cs procedure enable, doesn't find the connection for addr:%s",

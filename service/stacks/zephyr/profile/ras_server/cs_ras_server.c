@@ -38,12 +38,12 @@
 #define NUM_MODE_0_STEPS 1
 #define RAS_SEG_HEADER_SIZE 4
 
-static const char sample_str[] = "CS Sample111";
-static const struct bt_data ad[] = {
-    BT_DATA(BT_DATA_NAME_COMPLETE, "CS Sample111", sizeof(sample_str) - 1),
-    BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-    BT_DATA_BYTES(BT_DATA_UUID16_SOME, BT_UUID_16_ENCODE(0x185B)),
-};
+// static const char sample_str[] = "CS Sample111";
+// static const struct bt_data ad[] = {
+//     BT_DATA(BT_DATA_NAME_COMPLETE, "CS Sample111", sizeof(sample_str) - 1),
+//     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+//     BT_DATA_BYTES(BT_DATA_UUID16_SOME, BT_UUID_16_ENCODE(0x185B)),
+// };
 
 static sal_le_ras_srv_env_t* ras_srv;
 
@@ -122,12 +122,12 @@ static int ras_on_demond_send_cmp_ranging_data_rsp(struct bt_conn* conn, uint16_
                 NULL, on_ras_ctr_pt_write_cb, NULL),                                                \
             BT_GATT_CCC(range_ctr_pt_ccc_cfg_changed, (BT_GATT_PERM_READ | BT_GATT_PERM_WRITE)),    \
             BT_RAS_CHRC(BT_UUID_RANG_DT_RD,                                                         \
-                BT_GATT_CHRC_INDICATE,                                                              \
+                (BT_GATT_CHRC_NOTIFY | BT_GATT_CHRC_INDICATE),                                      \
                 BT_GATT_PERM_READ,                                                                  \
                 NULL, NULL, NULL),                                                                  \
             BT_GATT_CCC(range_dt_rd_ccc_cfg_changed, (BT_GATT_PERM_READ | BT_GATT_PERM_WRITE)),     \
             BT_RAS_CHRC(BT_UUID_RANG_DT_OV_WR,                                                      \
-                BT_GATT_CHRC_INDICATE,                                                              \
+                (BT_GATT_CHRC_NOTIFY | BT_GATT_CHRC_INDICATE),                                      \
                 BT_GATT_PERM_READ,                                                                  \
                 NULL, NULL, NULL),                                                                  \
             BT_GATT_CCC(range_dt_ov_wr_ccc_cfg_changed, (BT_GATT_PERM_READ | BT_GATT_PERM_WRITE)),  \
@@ -676,6 +676,7 @@ static void range_rt_dt_ccc_cfg_changed(const struct bt_gatt_attr* attr, uint16_
             (value == SAL_LE_RAS_GATT_NOTIFY) ? RAS_RTT_DATA_NOTIFY : RAS_RTT_DATA_INDICATE);
     }
 
+    ras_srv->rt_dt_ccc_cfg = value;
     LOG_INF("The range real-time data ccc value is change to (%d)\n", value);
     return;
 }
@@ -1262,7 +1263,7 @@ static uint8_t* ras_subevent_data_conversion(struct bt_conn* conn, struct bt_con
 
     uint8_t* stream_buf = ras_srv->latest_local_steps;
     int bit_offset = 0;
-    uint16_t count_id = ((result->header.procedure_counter & 0x0FFF) << 12) | (result->header.config_id & 0x0F);
+    uint16_t count_id = ((result->header.procedure_counter & 0x0FFF) << 8) | (result->header.config_id & 0x0F);
     /**
      * CS configuration identifier.
      * Range: 0 to 3
@@ -1389,7 +1390,9 @@ static void ras_process_on_demand_ranging_data(struct bt_conn* conn, struct bt_c
     uint8_t* stream_buf = ras_subevent_data_conversion(conn, result);
     split_on_demand_segment(conn, stream_buf, ras_srv->remaining_len, subevent);
     if (atomic_test_bit(&ras_srv->on_demand_state, SAL_LE_RAS_ON_DEMAND_STATE_IDLE)) {
-        ras_data_ready_send(conn, subevent->count);
+        LOG_DBG("on_demand_state:%d.", ras_srv->on_demand_state);
+        int ret = ras_data_ready_send(conn, subevent->count);
+        LOG_DBG("ret:%d.", ret);
         // Set the on-demand state to ready.
         atomic_set_bit(&ras_srv->on_demand_state, SAL_LE_RAS_ON_DEMAND_STATE_DATA_READY_INDICATE);
     }
@@ -1411,7 +1414,7 @@ static void subevent_result_cb(struct bt_conn* conn, struct bt_conn_le_cs_subeve
         return;
     }
 
-    LOG_ERR("No mode has been set, discard the subevent result.");
+    LOG_ERR("No mode has been set, discard the subevent result, procedure_done_status:%d, ranging mode:%d", result->header.procedure_done_status, ras_check_ranging_mode(conn));
     return;
 }
 
@@ -1425,6 +1428,7 @@ static int ras_data_ready_send(struct bt_conn* conn, uint16_t count)
     uint8_t buf[2];
     sys_put_le16(count, buf);
     if (atomic_test_bit(&ras_srv->char_notify_state, RAS_DATA_READY_NOTIFY)) {
+        // LOG_INF()
         return BT_GATT_NOTIFY(conn, &ras_attrs[SAL_LE_RAS_DT_RD_CHAR_IDX], &count, sizeof(count));
     } else if (atomic_test_bit(&ras_srv->char_notify_state, RAS_DATA_READY_INDICATE)) {
         struct bt_gatt_indicate_params data_ready_indicate;
@@ -1483,6 +1487,11 @@ static void connected_cb(struct bt_conn* conn, uint8_t err)
     if (err) {
         LOG_INF("Failed to configure default CS settings (err %d)\n", err);
     }
+    // atomic_set_bit(&ras_srv->char_notify_state, RAS_ON_DEMAND_DATA_NOTIFY);
+    // atomic_set_bit(&ras_srv->char_notify_state, RAS_DATA_READY_NOTIFY);
+    atomic_set_bit(&ras_srv->on_demand_state, SAL_LE_RAS_ON_DEMAND_STATE_IDLE);
+    // atomic_set_bit(&ras_srv->char_notify_state, RAS_CONTROL_POINT_NOTIFY);
+    LOG_DBG("on_demand_state:%d.", ras_srv->on_demand_state);
 }
 
 static void disconnected_cb(struct bt_conn* conn, uint8_t reason)
@@ -1612,6 +1621,7 @@ static void procedure_enabled_cb(struct bt_conn* conn,
     bt_srv_conn_le_cs_procedure_enable_complete_t procedure = {};
     memcpy(&procedure, params, sizeof(bt_srv_conn_le_cs_procedure_enable_complete_t));
     msg->cs_data.data = (void*)&procedure;
+    LOG_INF("msg:%d", msg->id);
     bt_sal_cs_event_callback(msg);
 
     if (params->state == 1) {
@@ -1654,7 +1664,7 @@ int le_cs_enable(void)
 
     memset(ras_srv, 0, sizeof(sal_le_ras_srv_env_t));
 
-    ras_srv->ras_feature = 0x07000007;
+    ras_srv->ras_feature = 0x06000006;
 
     for (int i = 0; i < SAL_LE_RAS_FILTER_MODE_MAX; i++) {
         ras_srv->ras_filter[i] = 0xFFFFFFFF;
