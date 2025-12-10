@@ -245,6 +245,8 @@ static void service_startup(profile_on_startup_t cb)
 
 static void service_shutdown(profile_on_shutdown_t cb)
 {
+    le_cs_disable();
+    list_delete(&g_cs_service.list);
     cb(PROFILE_CS, true);
 }
 

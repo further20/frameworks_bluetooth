@@ -751,6 +751,14 @@ int write_cs_reflector_step_data(void);
  */
 int le_cs_enable(void);
 
+/**
+ * @brief Disable the Channel Sounding (CS) feature.
+ *
+ * This function disable the local Core Controller
+ * to generate Ranging Data for RAS (Ranging Service) operations.
+ */
+void le_cs_disable(void);
+
 #ifdef CONFIG_BT_CS_TEST
 
 /**

@@ -1680,6 +1680,18 @@ int le_cs_enable(void)
     return 0;
 }
 
+void le_cs_disable(void)
+{
+    LOG_INF("Disable Channel Sounding Demo\n");
+    bt_gatt_service_unregister(&ras_svc);
+    bt_conn_cb_unregister(&conn_cbs);
+    bt_gatt_cb_unregister(&ras_gatt_callbacks);
+    if(ras_srv){
+        free(ras_srv);
+        ras_srv = NULL;
+    }
+}
+
 // struct bt_conn conn_back = {0};
 
 struct bt_gatt_attr* ras_get_gatt_attr(void)
