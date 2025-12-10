@@ -24,6 +24,34 @@
 
 #ifdef CONFIG_BLUETOOTH_LE_CS
 
+#define START_USAGE "start cs\n"                                                                    \
+                      "\t\t\t- <addr>\n" \
+                      "\t\t\t- <method> 0: AUTO, 1: RSSI, 2: CS.\n" \
+                      "\t\t\t- <mode> 0: Real-Time, 1: On-Demand.\n" \
+                      "\t\t\t- <role> 0: initiator, 1: responder.\n" \
+                      "\t\t\t- <interval_ms> Gap between the start of two consecutive CS subevents (only used for Real-Time mode).\n" \
+                      "\t\t\t- <duration_ms> Max. number of connection events between consecutive CS procedures (0x0001 to 0xFFFF).\n" \
+                      "\t\t\t- <mainMode> 1: RTT, 2: PBR, 3: PBR+RTT.\n" \
+                      "\t\t\t- <submode> 0: UNUSED, 1: RTT, 2: PBR, 3: PBR+RTT.\n" \
+                      "\t\t\t- <min_steps> Minimum number of CS main mode steps to be executed before a submode step is executed.\n" \
+                      "\t\t\t- <max_steps> Maximum number of CS main mode steps to be executed before a submode step is executed.\n" \
+                      "\t\t\t- <repetition> Number of main mode steps taken from the end of the last CS subevent to be repeated at the beginning of the current CS subevent directly after the last mode-0 step of that event\n" \
+                      "\t\t\t- <mode0_steps> Indicates the number of mode-0 CS steps to be includedat the beginning of each CS subevent.\n" \
+                      "\t\t\t- <rtt_type> 0: AA, 1: 32-bit sounding sequence, 2: 96-bit sounding sequence, 3: 32-bit random sequence, 4: 64-bit random sequence, 5: 96-bit random sequence, 6: 128-bit random sequence.\n" \
+                      "\t\t\t- <sync_phy> 1: 1M-phy, 2: 2M-phy, 3: 3M-phy.\n" \
+                      "\t\t\t- <channel_map> Indicates the channels to be used or unused during theCS procedure.\n" \
+                      "\t\t\t- <channelSelectionType> 0: 3B, 1: 3C.\n" \
+                      "\t\t\t- <ch3cShape> 0: HAT, 1: X.\n" \
+                      "\t\t\t- <ch3cJump> Number of channels skipped in each rising and falling sequence.\n" \
+                      "\t\t\t- <antenna_paths_mask> Bit0: 1 if Antenna Path_1 included; 0 if not.Bit1: 1 if Antenna Path_2 included; 0 if not.Bit2: 1 if Antenna Path_3 included; 0 if not.Bit3: 1 if Antenna Path_4 included; 0 if not.\n" \
+                      "\t\t\t- <preferredNumAntennas>\n" \
+                      "\t\t\t- <vendor_specific>\n" \
+                      "\t\t\t- <debug_flags>\n" 
+#define STOP_USAGE "stop cs\n"                                                                    \
+                      "\t\t\t- <addr>\n" \
+                      "\t\t\t- <method> 0: AUTO, 1: RSSI, 2: CS.\n" \
+                      "\t\t\t- <timeout> timeout of stop\n" 
+
 static int cs_start_distance_measurement_cmd(void* handle, int argc, char* argv[]);
 static int cs_stop_distance_measurement_cmd(void* handle, int argc, char* argv[]);
 static int cs_test_cmd(void* handle, int argc, char* argv[]);
@@ -32,10 +60,10 @@ static int cs_get_state_cmd(void* handle, int argc, char* argv[]);
 static void* cs_callbacks = NULL;
 
 static bt_command_t g_cs_tables[] = {
-    { "start", cs_start_distance_measurement_cmd, 0, "\"start distance measurement :\"" },
-    { "stop", cs_stop_distance_measurement_cmd, 0, "\"stop distance measurement :\"" },
-    { "test", cs_test_cmd, 0, "\"Channel Sounding test mode :\"" },
-    { "state", cs_get_state_cmd, 0, "\"cs state :\"" },
+    { "start", cs_start_distance_measurement_cmd, 0, START_USAGE },
+    { "stop", cs_stop_distance_measurement_cmd, 0, STOP_USAGE },
+    { "test", cs_test_cmd, 0, "\"Channel Sounding test mode \"" },
+    { "state", cs_get_state_cmd, 0, "\"get cs state\"" },
 };
 
 static void usage(void)
@@ -152,7 +180,7 @@ static int cs_stop_distance_measurement_cmd(void* handle, int argc, char* argv[]
 
     if (bt_addr_str2ba(argv[0], &addr) < 0)
         return CMD_INVALID_ADDR;
-
+    PRINT_ADDR("cs_stop_distance_measurement_cmd, addr:%s", &addr);
     bt_cs_stop_distance_measurement(handle, &addr, atoi(argv[1]), atoi(argv[2]));
     return 0;
 }

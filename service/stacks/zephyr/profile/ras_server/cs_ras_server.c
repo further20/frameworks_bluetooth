@@ -478,10 +478,10 @@ static int ras_on_demand_retrieve_send_lost_data(struct bt_conn* conn, uint16_t 
 static uint8_t ras_check_ranging_mode(struct bt_conn* conn)
 {
     if (atomic_test_bit(&ras_srv->char_notify_state, RAS_RTT_DATA_NOTIFY) || atomic_test_bit(&ras_srv->char_notify_state, RAS_RTT_DATA_INDICATE)) {
-        LOG_INF("The real-time mode has been set.");
+        // LOG_INF("The real-time mode has been set.");
         return SAL_LE_RAS_RANGING_MODE_REAL_TIME;
     } else if (atomic_test_bit(&ras_srv->char_notify_state, RAS_ON_DEMAND_DATA_NOTIFY) || atomic_test_bit(&ras_srv->char_notify_state, RAS_ON_DEMAND_DATA_INDICATE)) {
-        LOG_INF("The on-demand mode has been set.");
+        // LOG_INF("The on-demand mode has been set.");
         return SAL_LE_RAS_RANGING_MODE_ON_DEMAND;
     }
 
@@ -807,7 +807,7 @@ static void split_real_time_segment(struct bt_conn* conn, uint8_t* buf, int len)
 {
     if (ras_srv->remaining_len > ras_srv->ras_mtu - RAS_SEG_HEADER_SIZE - 1) {
         int curr_seg_size = ras_srv->ras_mtu - RAS_SEG_HEADER_SIZE - 1;
-        LOG_INF("data send: offset:%lu, len:%d\n", ras_srv->ras_seg_offset, curr_seg_size);
+        LOG_DBG("data send: offset:%lu, len:%d\n", ras_srv->ras_seg_offset, curr_seg_size);
 
         // update offset
         ras_srv->ras_seg_offset += curr_seg_size;
@@ -831,9 +831,9 @@ static void split_real_time_segment(struct bt_conn* conn, uint8_t* buf, int len)
         ras_srv->ras_dt_rd_ind_params.len = curr_seg_size + 1;
 
         if ((send_buf[0] & 0x01) == 0x01) {
-            LOG_INF("First seg, data(%d):%s\n", curr_seg_size + 1, bt_hex(send_buf, curr_seg_size + 1));
+            LOG_DBG("First seg, data(%d):%s\n", curr_seg_size + 1, bt_hex(send_buf, curr_seg_size + 1));
         } else {
-            LOG_INF("The %d seg, data(%d):%s\n", send_buf[0] >> 2, curr_seg_size + 1, bt_hex(send_buf, curr_seg_size + 1));
+            LOG_DBG("The %d seg, data(%d):%s\n", send_buf[0] >> 2, curr_seg_size + 1, bt_hex(send_buf, curr_seg_size + 1));
         }
 
         if (ras_srv->rt_dt_ccc_cfg == SAL_LE_RAS_GATT_NOTIFY) {
@@ -875,8 +875,8 @@ static void split_real_time_segment(struct bt_conn* conn, uint8_t* buf, int len)
         ras_srv->ras_dt_rd_indicating = 0U;
         ras_srv->remaining_len = 0;
         ras_srv->ras_seg_offset = 0;
-        LOG_INF("The last(%d) seg, data(%d):%s\n", send_buf[0] >> 2, curr_seg_size + 1, bt_hex(send_buf, curr_seg_size + 1));
-        LOG_INF("ras_dt_rd_indicating:%d\n", ras_srv->ras_dt_rd_indicating);
+        LOG_DBG("The last(%d) seg, data(%d):%s\n", send_buf[0] >> 2, curr_seg_size + 1, bt_hex(send_buf, curr_seg_size + 1));
+        LOG_DBG("ras_dt_rd_indicating:%d\n", ras_srv->ras_dt_rd_indicating);
         if (ras_srv->rt_dt_ccc_cfg == SAL_LE_RAS_GATT_NOTIFY) {
             if (BT_GATT_NOTIFY(conn, &ras_attrs[SAL_LE_RAS_RT_DT_CHAR_IDX], send_buf, curr_seg_size + 1) == 0) {
                 free(send_buf);
@@ -1254,7 +1254,7 @@ static uint8_t* ras_subevent_data_conversion(struct bt_conn* conn, struct bt_con
         if (result->step_data_buf->len <= SAL_LE_RAS_STEP_DATA_BUF_LEN) {
             memcpy(ras_srv->latest_local_steps, result->step_data_buf->data,
                 result->step_data_buf->len);
-            LOG_INF("step data[%d]:%s\n", i++, bt_hex(result->step_data_buf->data, result->step_data_buf->len));
+            LOG_DBG("step data[%d]:%s\n", i++, bt_hex(result->step_data_buf->data, result->step_data_buf->len));
         } else {
             LOG_INF("Not enough memory to store step data. (%d > %d)\n",
                 result->step_data_buf->len, SAL_LE_RAS_STEP_DATA_BUF_LEN);
@@ -1263,7 +1263,8 @@ static uint8_t* ras_subevent_data_conversion(struct bt_conn* conn, struct bt_con
 
     uint8_t* stream_buf = ras_srv->latest_local_steps;
     int bit_offset = 0;
-    uint16_t count_id = ((result->header.procedure_counter & 0x0FFF) << 8) | (result->header.config_id & 0x0F);
+    uint16_t count_id = ((result->header.procedure_counter & 0x0FFF)) | ((result->header.config_id & 0x0F)) << 12;
+    count_id = (count_id << 8) | (count_id >> 8);
     /**
      * CS configuration identifier.
      * Range: 0 to 3
@@ -1345,25 +1346,25 @@ static uint8_t* ras_subevent_data_conversion(struct bt_conn* conn, struct bt_con
         result->step_data_buf->len, stream_buf + SAL_LE_RAS_SUB_PROCUDURE_HEAD,
         ras_srv->ras_filter, ras_srv->ras_role, result->header.num_antenna_paths & 0x0F);
     ras_srv->remaining_len += SAL_LE_RAS_SUB_PROCUDURE_HEAD;
-    LOG_INF("stream head:%s.", bt_hex(stream_buf, SAL_LE_RAS_SUB_PROCUDURE_HEAD));
-    LOG_INF("stream_buf(%ld):%s.\n", ras_srv->remaining_len, bt_hex(stream_buf + 12, ras_srv->remaining_len - SAL_LE_RAS_SUB_PROCUDURE_HEAD));
-    LOG_INF("data ready indiacte count(%d)., uuid:0x%x, handle:%d\n",
+    LOG_DBG("stream head:%s.", bt_hex(stream_buf, SAL_LE_RAS_SUB_PROCUDURE_HEAD));
+    LOG_DBG("stream_buf(%ld):%s.\n", ras_srv->remaining_len, bt_hex(stream_buf + 12, ras_srv->remaining_len - SAL_LE_RAS_SUB_PROCUDURE_HEAD));
+    LOG_DBG("data ready indiacte count(%d)., uuid:0x%x, handle:%d\n",
         result->header.procedure_counter,
         BT_UUID_16(ras_attrs[SAL_LE_RAS_DT_RD_CHAR_VAL_IDX].uuid)->val,
         ras_attrs[SAL_LE_RAS_DT_RD_CHAR_VAL_IDX].handle);
-    LOG_INF("procedure_counter:0x%x, config_id:0x%x, reference_power_level:0x%x",
+    LOG_DBG("procedure_counter:0x%x, config_id:0x%x, reference_power_level:0x%x",
         result->header.procedure_counter, result->header.config_id,
         result->header.reference_power_level);
-    LOG_INF("num_antenna_paths:0x%x, start_acl_conn_event:0x%x, frequency_compensation:0x%x",
+    LOG_DBG("num_antenna_paths:0x%x, start_acl_conn_event:0x%x, frequency_compensation:0x%x",
         result->header.num_antenna_paths, result->header.start_acl_conn_event,
         result->header.frequency_compensation);
-    LOG_INF("procedure_done_status:0x%x, subevent_done_status:0x%x,   :0x%x",
+    LOG_DBG("procedure_done_status:0x%x, subevent_done_status:0x%x,   :0x%x",
         result->header.procedure_done_status, result->header.subevent_done_status,
         result->header.procedure_abort_reason);
-    LOG_INF("subevent_abort_reason:0x%x, reference_power_level:0x%x, num_steps_reported:0x%x",
+    LOG_DBG("subevent_abort_reason:0x%x, reference_power_level:0x%x, num_steps_reported:0x%x",
         result->header.subevent_abort_reason, result->header.reference_power_level,
         result->header.num_steps_reported);
-    LOG_INF("mode:0x%x, channel:0x%x, len:0x%x", result->step_data_buf->data[0],
+    LOG_DBG("mode:0x%x, channel:0x%x, len:0x%x", result->step_data_buf->data[0],
         result->step_data_buf->data[1],
         result->step_data_buf->data[2]);
     return stream_buf;
@@ -1456,13 +1457,9 @@ static void ras_mtu_updated(struct bt_conn* conn, uint16_t tx, uint16_t rx)
 
 static void connected_cb(struct bt_conn* conn, uint8_t err)
 {
-    char addr[BT_ADDR_LE_STR_LEN];
     bt_address_t bt_addr = { 0 };
 
-    (void)bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-    LOG_INF("Connected to %s (err 0x%02X)\n", addr, err);
-
-    memcpy(bt_addr.addr, addr, sizeof(bt_address_t));
+    memcpy(bt_addr.addr, &(bt_conn_get_dst(conn)->a), sizeof(bt_address_t));
     cs_msg_t* msg = cs_msg_new(CONNECTED_EVT, &bt_addr);
     bt_sal_cs_event_callback(msg);
 
@@ -1479,7 +1476,7 @@ static void connected_cb(struct bt_conn* conn, uint8_t err)
     const struct bt_le_cs_set_default_settings_param default_settings = {
         .enable_initiator_role = false,
         .enable_reflector_role = true,
-        .cs_sync_antenna_selection = BT_LE_SRV_CS_ANTENNA_SELECTION_OPT_REPETITIVE,
+        .cs_sync_antenna_selection = BT_LE_SRV_CS_ANTENNA_SELECTION_OPT_ONE,
         .max_tx_power = BT_HCI_OP_LE_CS_MAX_MAX_TX_POWER,
     };
 
@@ -1496,11 +1493,9 @@ static void connected_cb(struct bt_conn* conn, uint8_t err)
 
 static void disconnected_cb(struct bt_conn* conn, uint8_t reason)
 {
-    char addr[BT_ADDR_LE_STR_LEN];
     bt_address_t bt_addr = { 0 };
 
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-    memcpy(bt_addr.addr, addr, sizeof(bt_address_t));
+    memcpy(bt_addr.addr,  &(bt_conn_get_dst(conn)->a), sizeof(bt_address_t));
     cs_msg_t* msg = cs_msg_new(DISCONNECTED_EVT, &bt_addr);
     bt_sal_cs_event_callback(msg);
 
@@ -1522,11 +1517,9 @@ static void disconnected_cb(struct bt_conn* conn, uint8_t reason)
 
 static void remote_capabilities_cb(struct bt_conn* conn, struct bt_conn_le_cs_capabilities* params)
 {
-    char addr[BT_ADDR_LE_STR_LEN];
     bt_address_t bt_addr = { 0 };
 
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-    memcpy(bt_addr.addr, addr, sizeof(bt_address_t));
+    memcpy(bt_addr.addr,  &(bt_conn_get_dst(conn)->a), sizeof(bt_address_t));
     cs_msg_t* msg = cs_msg_new(CAPBLITIES_RECEIVED_EVT, &bt_addr);
     bt_srv_conn_le_cs_capabilities_t capabilities = {};
     memcpy(&capabilities, params, sizeof(bt_srv_conn_le_cs_capabilities_t));
@@ -1564,11 +1557,9 @@ static void remote_capabilities_cb(struct bt_conn* conn, struct bt_conn_le_cs_ca
 
 static void config_created_cb(struct bt_conn* conn, struct bt_conn_le_cs_config* config)
 {
-    char addr[BT_ADDR_LE_STR_LEN];
     bt_address_t bt_addr = { 0 };
 
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-    memcpy(bt_addr.addr, addr, sizeof(bt_address_t));
+    memcpy(bt_addr.addr,  &(bt_conn_get_dst(conn)->a), sizeof(bt_address_t));
     cs_msg_t* msg = cs_msg_new(CONFIG_DONE_EVT, &bt_addr);
     bt_srv_conn_le_cs_config_t cs_config = {};
     memcpy(&cs_config, config, sizeof(bt_srv_conn_le_cs_config_t));
@@ -1599,11 +1590,9 @@ static void config_created_cb(struct bt_conn* conn, struct bt_conn_le_cs_config*
 
 static void security_enabled_cb(struct bt_conn* conn)
 {
-    char addr[BT_ADDR_LE_STR_LEN];
     bt_address_t bt_addr = { 0 };
 
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-    memcpy(bt_addr.addr, addr, sizeof(bt_address_t));
+    memcpy(bt_addr.addr,  &(bt_conn_get_dst(conn)->a), sizeof(bt_address_t));
     cs_msg_t* msg = cs_msg_new(SECURITY_DONE_EVT, &bt_addr);
     bt_sal_cs_event_callback(msg);
     LOG_INF("CS security enabled.\n");
@@ -1612,11 +1601,9 @@ static void security_enabled_cb(struct bt_conn* conn)
 static void procedure_enabled_cb(struct bt_conn* conn,
     struct bt_conn_le_cs_procedure_enable_complete* params)
 {
-    char addr[BT_ADDR_LE_STR_LEN];
     bt_address_t bt_addr = { 0 };
 
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-    memcpy(bt_addr.addr, addr, sizeof(bt_address_t));
+    memcpy(bt_addr.addr,  &(bt_conn_get_dst(conn)->a), sizeof(bt_address_t));
     cs_msg_t* msg = cs_msg_new(PROCEDURE_DONE_EVT, &bt_addr);
     bt_srv_conn_le_cs_procedure_enable_complete_t procedure = {};
     memcpy(&procedure, params, sizeof(bt_srv_conn_le_cs_procedure_enable_complete_t));
@@ -1664,7 +1651,7 @@ int le_cs_enable(void)
 
     memset(ras_srv, 0, sizeof(sal_le_ras_srv_env_t));
 
-    ras_srv->ras_feature = 0x06000006;
+    ras_srv->ras_feature = 0x07000007;
 
     for (int i = 0; i < SAL_LE_RAS_FILTER_MODE_MAX; i++) {
         ras_srv->ras_filter[i] = 0xFFFFFFFF;

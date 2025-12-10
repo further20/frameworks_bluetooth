@@ -69,6 +69,7 @@ static char* stack_event_to_string(cs_msg_id_t msg_id)
         CASE_RETURN_STR(CONNECTED_EVT)
         CASE_RETURN_STR(CONFIG_DONE_EVT)
         CASE_RETURN_STR(SECURITY_DONE_EVT)
+        CASE_RETURN_STR(PROCEDURE_DONE_EVT)
     default:
         return "UNKNOWN_EVENT";
     }
@@ -117,14 +118,6 @@ static const state_t disconnected_state = {
     .exit = disconnected_exit,
     .process_event = disconnected_process_event,
 };
-
-// static const state_t init_state = {
-//     .state_name = "Init",
-//     .state_value = CS_STATE_INIT,
-//     .enter = init_enter,
-//     .exit = init_exit,
-//     .process_event = init_process_event,
-// };
 
 static const state_t connected_state = {
     .state_name = "Connected",
@@ -252,6 +245,7 @@ static bool connected_process_event(state_machine_t* sm, uint32_t event, void* p
 {
     cs_state_machine_t* cs_sm = (cs_state_machine_t*)sm;
     cs_msg_data_t* data = (cs_msg_data_t*)p_data;
+    bt_srv_conn_le_cs_procedure_enable_complete_t* cs_data = (bt_srv_conn_le_cs_procedure_enable_complete_t*)(data->data);
 
     CS_DBG_EVENT(sm, &cs_sm->addr, event);
     switch (event) {
@@ -308,6 +302,14 @@ static bool connected_process_event(state_machine_t* sm, uint32_t event, void* p
         }
 
         hsm_transition_to(sm, &wait_for_config_complete_state);
+        break;
+    case PROCEDURE_DONE_EVT:
+        if(cs_data->state == CS_BT_SRV_CONN_LE_CS_PROCEDURES_ENABLED){
+            hsm_transition_to(sm, &started_state);
+        } else{
+            hsm_transition_to(sm, &connected_state);
+        }
+
         break;
     default:
         break;
@@ -431,7 +433,8 @@ static void wait_for_procedure_complete_exit(state_machine_t* sm)
 static bool wait_for_procedure_complete_process_event(state_machine_t* sm, uint32_t event, void* p_data)
 {
     cs_state_machine_t* cs_sm = (cs_state_machine_t*)sm;
-    // cs_msg_t* data = (cs_msg_t*)p_data;
+    cs_msg_data_t* data = (cs_msg_data_t*)p_data;
+    bt_srv_conn_le_cs_procedure_enable_complete_t* cs_data = (bt_srv_conn_le_cs_procedure_enable_complete_t*)(data->data);
 
     CS_DBG_EVENT(sm, &cs_sm->addr, event);
     switch (event) {
@@ -448,7 +451,12 @@ static bool wait_for_procedure_complete_process_event(state_machine_t* sm, uint3
         hsm_transition_to(sm, &wait_for_procedure_complete_state);
         break;
     case PROCEDURE_DONE_EVT:
-        hsm_transition_to(sm, &started_state);
+        if(cs_data->state == CS_BT_SRV_CONN_LE_CS_PROCEDURES_ENABLED){
+            hsm_transition_to(sm, &started_state);
+        } else{
+            hsm_transition_to(sm, &connected_state);
+        }
+
         break;
     default:
         break;

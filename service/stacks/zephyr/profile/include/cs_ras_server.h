@@ -393,7 +393,6 @@ typedef uint8_t ras_rang_mode_t;
             p += (_size);                                      \
             remaining -= (_size);                              \
         } else {                                               \
-            LOG_WRN("Field truncated, size=%d", (int)(_size)); \
             remaining = 0;                                     \
         }                                                      \
     } while (0)

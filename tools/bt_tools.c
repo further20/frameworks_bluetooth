@@ -450,7 +450,11 @@ static int enable_cmd(void* handle, int argc, char** argv)
 
 static int disable_cmd(void* handle, int argc, char** argv)
 {
+#ifdef CONFIG_BLUETOOTH_BREDR_SUPPORT
     bt_adapter_disable_safe(handle);
+#else
+    bt_adapter_disable(handle);
+#endif
     return CMD_OK;
 }
 
